@@ -1,15 +1,13 @@
 name: Daily Tech Blog Post
-
 on:
   schedule:
     # Run every day at 10:00 AM UTC
     - cron: '0 10 * * *'
-  workflow_dispatch:  # Allow manual triggering
-  
+  workflow_dispatch: # Allow manual triggering
+
 jobs:
   create-blog-post:
     runs-on: ubuntu-latest
-    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -24,7 +22,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install playwright google-generativeai python-dotenv pyautogui
           playwright install chromium
-          
+
       - name: Configure environment
         env:
           BLOG_EMAIL: ${{ secrets.BLOG_EMAIL }}
@@ -33,7 +31,6 @@ jobs:
         run: |
           # Create necessary directories
           mkdir -p screenshots logs
-          
           # Create config file
           echo '{
             "email": "${{ secrets.BLOG_EMAIL }}",
