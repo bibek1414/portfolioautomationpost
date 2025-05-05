@@ -1,31 +1,39 @@
 #!/bin/bash
 
-# Get the absolute path to the script directory
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LOG_FILE="$SCRIPT_DIR/cron_execution.log"
+# Make script executable and set up local cron job for testing
+# This is useful for local development before using GitHub Actions
 
-# Create a temporary file for the new crontab
+# Check if script is being run with sudo
+if [ "$EUID" -ne 0 ]; then
+  echo "Please run with sudo: sudo $0"
+  exit 1
+fi
+
+# Get the absolute path of the current directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Make the Python script executable
+chmod +x "$SCRIPT_DIR/blog_automation.py"
+
+# Create a temporary cron file
 TEMP_CRON=$(mktemp)
 
 # Export current crontab
-crontab -l > "$TEMP_CRON" 2>/dev/null || echo "# Blog Automation Crontab" > "$TEMP_CRON"
+crontab -l > "$TEMP_CRON" 2>/dev/null || true
 
-# Check if our job is already in the crontab
-if ! grep -q "blog_automation.py" "$TEMP_CRON"; then
-    # Add our job to run daily at 10:00 AM
-    echo "# Run blog automation daily at 10:00 AM" >> "$TEMP_CRON"
-    echo "0 10 * * * cd $SCRIPT_DIR && /usr/bin/python3 $SCRIPT_DIR/blog_automation.py >> $LOG_FILE 2>&1" >> "$TEMP_CRON"
+# Check if entry already exists
+if grep -q "blog_automation.py" "$TEMP_CRON"; then
+    echo "Cron job for blog automation already exists."
+else
+    # Add new cron job to run daily at 10:00 AM (adjust time as needed)
+    echo "0 10 * * * cd $SCRIPT_DIR && python blog_automation.py --headless >> $SCRIPT_DIR/logs/cron_execution.log 2>&1" >> "$TEMP_CRON"
     
-    # Install the new crontab
+    # Install new crontab
     crontab "$TEMP_CRON"
     echo "Cron job added successfully. Blog posts will be created daily at 10:00 AM."
-else
-    echo "Cron job already exists."
 fi
 
 # Clean up
 rm "$TEMP_CRON"
 
-echo ""
-echo "To check your current crontab, run: crontab -l"
-echo "To edit your crontab manually, run: crontab -e"
+echo "Setup complete! You can test the script manually with: python $SCRIPT_DIR/blog_automation.py"

@@ -1,11 +1,11 @@
-name: Daily Blog Post
+name: Daily Tech Blog Post
 
 on:
   schedule:
     # Run every day at 10:00 AM UTC
     - cron: '0 10 * * *'
   workflow_dispatch:  # Allow manual triggering
-
+  
 jobs:
   create-blog-post:
     runs-on: ubuntu-latest
@@ -22,14 +22,25 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install playwright pyautogui
+          pip install playwright google-generativeai python-dotenv pyautogui
           playwright install chromium
           
-      - name: Create config file
+      - name: Configure environment
+        env:
+          BLOG_EMAIL: ${{ secrets.BLOG_EMAIL }}
+          BLOG_PASSWORD: ${{ secrets.BLOG_PASSWORD }}
+          GOOGLE_AI_API_KEY: ${{ secrets.GOOGLE_AI_API_KEY }}
         run: |
+          # Create necessary directories
+          mkdir -p screenshots logs
+          
+          # Create config file
           echo '{
             "email": "${{ secrets.BLOG_EMAIL }}",
-            "password": "${{ secrets.BLOG_PASSWORD }}"
+            "password": "${{ secrets.BLOG_PASSWORD }}",
+            "google_ai": {
+              "api_key": "${{ secrets.GOOGLE_AI_API_KEY }}"
+            }
           }' > config.json
           
       - name: Run blog automation
@@ -38,6 +49,25 @@ jobs:
       - name: Upload screenshots
         uses: actions/upload-artifact@v3
         with:
-          name: screenshots
-          path: screenshots/
+          name: execution-artifacts
+          path: |
+            screenshots/
+            logs/
           retention-days: 7
+          
+      - name: Upload analytics
+        uses: actions/upload-artifact@v3
+        with:
+          name: analytics-data
+          path: post_analytics.json
+          retention-days: 30
+          
+      # Optional: Commit changes back to repository to keep history
+      - name: Commit analytics data
+        if: success()
+        run: |
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "actions@github.com"
+          git add post_analytics.json
+          git commit -m "Update post analytics [skip ci]" || echo "No changes to commit"
+          git push || echo "Nothing to push"

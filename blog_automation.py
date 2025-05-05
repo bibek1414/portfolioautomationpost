@@ -7,13 +7,18 @@ from datetime import datetime
 import argparse
 import json
 import logging
+import google.generativeai as genai
+from dotenv import load_dotenv
+
+# Load environment variables from .env file if present
+load_dotenv()
 
 # Set up logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler("blog_automation.log"),
+        logging.FileHandler("logs/blog_automation.log"),
         logging.StreamHandler()
     ]
 )
@@ -23,10 +28,11 @@ def load_credentials():
     try:
         with open("config.json", "r") as f:
             config = json.load(f)
-            return config["email"], config["password"]
+            google_api_key = config.get("google_ai", {}).get("api_key") or os.getenv("GOOGLE_AI_API_KEY")
+            return config["email"], config["password"], google_api_key
     except Exception as e:
         logging.error(f"Error loading credentials: {e}")
-        return None, None
+        return None, None, None
 
 def load_content_templates():
     """Load blog post templates from a file"""
@@ -37,28 +43,134 @@ def load_content_templates():
         logging.error(f"Error loading content templates: {e}")
         return []
 
-def generate_post_content():
+def generate_tech_topic():
+    """Generate a current tech topic to write about"""
+    tech_topics = [
+        "Cloud Native Architecture",
+        "DevOps Best Practices",
+        "Machine Learning Ethics",
+        "Kubernetes in Production",
+        "Serverless Computing",
+        "Python Development Tips",
+        "Web3 Technology",
+        "Cybersecurity Trends",
+        "GitHub Copilot and AI Programming",
+        "Tech Industry Humor",
+        "Docker Optimization",
+        "API Design Principles",
+        "Frontend Framework Comparison",
+        "Infrastructure as Code",
+        "Database Performance Tuning",
+        "Tech Career Development",
+        "Open Source Contributions",
+        "Mobile App Development Trends",
+        "Microservices Architecture",
+        "AI and ML in DevOps"
+    ]
+    return random.choice(tech_topics)
+
+def generate_ai_content(api_key, template=None):
+    """Generate blog content using Google Generative AI"""
+    if not api_key:
+        logging.warning("Google AI API key not found, using templates instead")
+        return None
+    
+    try:
+        genai.configure(api_key=api_key)
+        
+        # Use gemini-1.5-flash model instead of gemini-pro
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        logging.info("Using model: gemini-1.5-flash")
+        
+        # Choose a random tech topic if no template provided
+        topic = template["title"] if template else generate_tech_topic()
+        
+        # Create prompt for content generation
+        prompt = f"""
+        Create a blog post about "{topic}". The post should:
+        - Be written in a slightly humorous but professional tech voice
+        - Include practical insights and examples
+        - Have clear sections with markdown formatting
+        - Be around 500-800 words
+        - Include a title, introduction, 2-4 main sections, and conclusion
+        - Be related to software development, DevOps, or modern tech trends
+        
+        Format the post using markdown, with a # heading for the title and ## for sections.
+        Also suggest 3-6 relevant tags as a comma-separated list.
+        """
+        
+        response = model.generate_content(prompt)
+        content_text = response.text
+        
+        # Extract title, content and tags
+        lines = content_text.split('\n')
+        title = lines[0].replace('# ', '') if lines and lines[0].startswith('# ') else topic
+        
+        # Find tags (usually at the end)
+        tags = ""
+        for line in lines:
+            if line.lower().startswith("tags:") or line.lower().startswith("**tags:**"):
+                tags = line.split(":", 1)[1].strip()
+                break
+        
+        # If tags not found in expected format, generate some
+        if not tags:
+            tags = ",".join(topic.lower().split()[:3]) + ",tech,blog"
+        
+        # Create excerpt from first paragraph
+        excerpt = ""
+        for line in lines[1:]:
+            if line.strip() and not line.startswith('#'):
+                excerpt = line.strip()[:150]
+                if len(excerpt) >= 100:
+                    break
+        
+        return {
+            "title": title,
+            "excerpt": excerpt,
+            "content": content_text,
+            "tags": tags
+        }
+        
+    except Exception as e:
+        logging.error(f"Error generating AI content: {e}")
+        return None
+
+def generate_post_content(api_key=None):
     """Generate content for a new blog post"""
     templates = load_content_templates()
     
-    if not templates:
-        # Default template if none are loaded
+    # First try AI content generation if API key available
+    if api_key:
+        # Randomly decide whether to use a template or pure AI-generated content
+        use_template_as_guide = random.choice([True, False])
+        template = random.choice(templates) if templates and use_template_as_guide else None
+        
+        ai_content = generate_ai_content(api_key, template)
+        if ai_content:
+            logging.info("Using AI-generated content")
+            return ai_content
+    
+    # Fall back to templates if AI generation fails or no API key
+    if templates:
+        template = random.choice(templates)
+        
+        # Add current date to make it unique
         current_date = datetime.now().strftime("%Y-%m-%d")
-        return {
-            "title": f"Daily Update - {current_date}",
-            "excerpt": f"My thoughts and updates for {current_date}",
-            "content": f"# Daily Update\n\nThis is the content for {current_date}.\n\n## Key Points\n\n- Point 1\n- Point 2\n- Point 3\n\n## Conclusion\n\nThank you for reading today's update!",
-            "tags": "daily,update,blog"
-        }
+        template["title"] = f"{template['title']} - {current_date}"
+        
+        logging.info("Using template content")
+        return template
     
-    # Choose a random template
-    template = random.choice(templates)
-    
-    # Add current date to make it unique
+    # Default content as last resort
     current_date = datetime.now().strftime("%Y-%m-%d")
-    template["title"] = f"{template['title']} - {current_date}"
-    
-    return template
+    logging.info("Using default content")
+    return {
+        "title": f"Tech Update - {current_date}",
+        "excerpt": f"Latest thoughts on technology trends for {current_date}",
+        "content": f"# Tech Update\n\nThis is the content for {current_date}.\n\n## Key Points\n\n- Technology is constantly evolving\n- DevOps practices improve efficiency\n- Automation saves time\n\n## Conclusion\n\nStay updated with the latest tech trends!",
+        "tags": "tech,update,devops"
+    }
 
 def create_screenshots_dir():
     """Create directory for screenshots if it doesn't exist"""
@@ -78,20 +190,44 @@ def take_screenshot(page, name):
     logging.info(f"Screenshot saved: {filename}")
     return filename
 
-def automate_blog_post():
+def check_existing_post(page, title):
+    """Check if a post with similar title already exists"""
+    try:
+        # Navigate to blog listing page if not already there
+        if not page.url.endswith("/blog"):
+            page.goto("https://www.bibekbhattarai14.com.np/blog")
+        
+        # Look for the title in the page content
+        title_words = set(word.lower() for word in title.split() if len(word) > 3)
+        page_content = page.content().lower()
+        
+        match_count = sum(1 for word in title_words if word in page_content)
+        match_percentage = match_count / len(title_words) if title_words else 0
+        
+        if match_percentage > 0.7:  # If more than 70% of significant words match
+            logging.warning(f"A similar post may already exist for: {title}")
+            return True
+        
+        return False
+        
+    except Exception as e:
+        logging.error(f"Error checking existing posts: {e}")
+        return False  # Proceed with posting if check fails
+
+def automate_blog_post(headless=False):
     """Main function to automate blog post creation"""
-    email, password = load_credentials()
+    email, password, google_api_key = load_credentials()
     
     if not email or not password:
         logging.error("Credentials not found. Please set up config.json")
         return False
     
-    post_content = generate_post_content()
+    post_content = generate_post_content(google_api_key)
     
     with sync_playwright() as p:
         try:
             # Launch the browser
-            browser = p.chromium.launch(headless=False)  # Set to True for production
+            browser = p.chromium.launch(headless=headless)
             context = browser.new_context()
             page = context.new_page()
             
@@ -115,29 +251,30 @@ def automate_blog_post():
                 page.click('button[type="submit"]')
                 
                 # Wait for navigation after login
-                page.wait_for_url("**/blog")
+                page.wait_for_url("**/blog", timeout=15000)
                 logging.info("Successfully logged in")
             
             # Take screenshot of blog dashboard
             take_screenshot(page, "blog_dashboard")
             
-            # Click on Create New Post button - FIXED SELECTOR to match React component
-            logging.info("Creating new post...")
-            # Looking at your React component, the button text is "Create New Post"
-            page.click('text="Create New Post"', timeout=10000)
+            # Check if similar post exists
+            if check_existing_post(page, post_content["title"]):
+                logging.info("Modifying title to avoid duplication")
+                post_content["title"] = f"{post_content['title']} (v{random.randint(2, 99)})"
             
-            # If the above fails, try alternative selectors
-            if not page.url.endswith("/new"):
-                logging.info("First selector failed, trying alternative...")
-                # Try using a CSS class or other attribute
-                page.click('a.bg-blue-600', timeout=10000)
-                
-                # If that fails too, try navigating directly
-                if not page.url.endswith("/new"):
-                    logging.info("Navigating directly to the new post page...")
+            # Click on Create New Post button
+            logging.info("Creating new post...")
+            try:
+                page.click('text="Create New Post"', timeout=10000)
+            except:
+                # Try alternative selectors if the first one fails
+                try:
+                    page.click('a.bg-blue-600', timeout=5000)
+                except:
+                    # Navigate directly as last resort
                     page.goto("https://www.bibekbhattarai14.com.np/blog/new")
             
-            # Wait for the post creation form to appear - FIXED SELECTOR
+            # Wait for the post creation form to appear
             logging.info("Waiting for form to load...")
             page.wait_for_selector('#title', timeout=10000)
             
@@ -157,8 +294,7 @@ def automate_blog_post():
             # Take screenshot before submission
             take_screenshot(page, "before_submission")
             
-            # Click Create Post button - FIXED SELECTOR to look for the button text from your React component
-            # From your React component, the button will say "Create Post" or "Update Post"
+            # Click Create Post button
             button_selector = 'button[type="submit"]'
             page.click(button_selector)
             
@@ -170,6 +306,9 @@ def automate_blog_post():
             
             logging.info(f"Successfully created post: {post_content['title']}")
             
+            # Save successful post details for analytics
+            save_post_analytics(post_content["title"])
+            
             # Close the browser
             browser.close()
             
@@ -177,17 +316,48 @@ def automate_blog_post():
             
         except Exception as e:
             logging.error(f"Error during automation: {e}")
-            # Take screenshot of error state using Playwright instead of pyautogui
+            # Take screenshot of error state using Playwright
             if 'page' in locals():
                 take_screenshot(page, "error_state")
             return False
+
+def save_post_analytics(post_title):
+    """Save post creation data for analytics tracking"""
+    analytics_file = "post_analytics.json"
+    
+    try:
+        # Load existing analytics data
+        if os.path.exists(analytics_file):
+            with open(analytics_file, "r") as f:
+                analytics = json.load(f)
+        else:
+            analytics = {"posts": []}
+        
+        # Add new post data
+        post_data = {
+            "title": post_title,
+            "created_at": datetime.now().isoformat(),
+            "views": 0,  # Initial view count
+            "comments": 0  # Initial comment count
+        }
+        
+        analytics["posts"].append(post_data)
+        
+        # Save updated analytics data
+        with open(analytics_file, "w") as f:
+            json.dump(analytics, f, indent=2)
+            
+        logging.info(f"Analytics data saved for post: {post_title}")
+        
+    except Exception as e:
+        logging.error(f"Error saving analytics data: {e}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Automate blog post creation")
     parser.add_argument("--headless", action="store_true", help="Run in headless mode")
     args = parser.parse_args()
     
-    success = automate_blog_post()
+    success = automate_blog_post(args.headless)
     
     if success:
         logging.info("Blog post automation completed successfully")
