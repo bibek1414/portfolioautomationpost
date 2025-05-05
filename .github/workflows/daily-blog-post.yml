@@ -4,7 +4,7 @@ on:
     # Run every day at 10:00 AM UTC
     - cron: '0 10 * * *'
   workflow_dispatch: # Allow manual triggering
-
+  
 jobs:
   create-blog-post:
     runs-on: ubuntu-latest
@@ -20,27 +20,18 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install playwright google-generativeai python-dotenv pyautogui
+          pip install playwright google-generativeai python-dotenv
           playwright install chromium
-
-      - name: Configure environment
+          
+      - name: Create directories
+        run: |
+          mkdir -p screenshots logs
+          
+      - name: Run blog automation
         env:
           BLOG_EMAIL: ${{ secrets.BLOG_EMAIL }}
           BLOG_PASSWORD: ${{ secrets.BLOG_PASSWORD }}
           GOOGLE_AI_API_KEY: ${{ secrets.GOOGLE_AI_API_KEY }}
-        run: |
-          # Create necessary directories
-          mkdir -p screenshots logs
-          # Create config file
-          echo '{
-            "email": "${{ secrets.BLOG_EMAIL }}",
-            "password": "${{ secrets.BLOG_PASSWORD }}",
-            "google_ai": {
-              "api_key": "${{ secrets.GOOGLE_AI_API_KEY }}"
-            }
-          }' > config.json
-          
-      - name: Run blog automation
         run: python blog_automation.py --headless
         
       - name: Upload screenshots
@@ -54,6 +45,7 @@ jobs:
           
       - name: Upload analytics
         uses: actions/upload-artifact@v3
+        if: success()
         with:
           name: analytics-data
           path: post_analytics.json

@@ -36,3 +36,33 @@ waiting for navigation to "**/blog" until 'load'
 2025-05-05 16:14:54,291 - INFO - Successfully created post: When Algorithms Go Rogue: Hilarious Machine Learning Fails
 2025-05-05 16:14:54,292 - INFO - Analytics data saved for post: When Algorithms Go Rogue: Hilarious Machine Learning Fails
 2025-05-05 16:14:54,440 - INFO - Blog post automation completed successfully
+2025-05-05 16:29:02,111 - INFO - Using model: gemini-1.5-flash
+2025-05-05 16:29:09,111 - INFO - Using AI-generated content
+2025-05-05 16:29:10,050 - INFO - Navigating to login page...
+2025-05-05 16:29:11,132 - INFO - Filling login form...
+2025-05-05 16:29:17,178 - INFO - Screenshot saved: screenshots/before_login_20250505_162917.png
+2025-05-05 16:29:18,572 - INFO - Successfully logged in
+2025-05-05 16:29:18,709 - INFO - Screenshot saved: screenshots/blog_dashboard_20250505_162918.png
+2025-05-05 16:29:18,717 - INFO - Creating new post...
+2025-05-05 16:29:18,784 - INFO - Waiting for form to load...
+2025-05-05 16:29:18,804 - INFO - Filling post details...
+2025-05-05 16:29:19,029 - INFO - Screenshot saved: screenshots/before_submission_20250505_162918.png
+2025-05-05 16:29:19,965 - INFO - Screenshot saved: screenshots/post_created_20250505_162919.png
+2025-05-05 16:29:19,966 - INFO - Successfully created post: Hilarious Machine Learning Fails: When Algorithms Go Rogue
+2025-05-05 16:29:19,967 - INFO - Analytics data saved for post: Hilarious Machine Learning Fails: When Algorithms Go Rogue
+2025-05-05 16:29:20,153 - INFO - Blog post automation completed successfully
+2025-05-05 16:31:54,604 - INFO - Using model: gemini-1.5-flash
+2025-05-05 16:32:02,058 - INFO - Using AI-generated content
+2025-05-05 16:32:03,127 - INFO - Navigating to login page...
+2025-05-05 16:32:03,876 - INFO - Filling login form...
+2025-05-05 16:32:09,978 - INFO - Screenshot saved: screenshots/before_login_20250505_163209.png
+2025-05-05 16:32:11,761 - INFO - Successfully logged in
+2025-05-05 16:32:11,876 - INFO - Screenshot saved: screenshots/blog_dashboard_20250505_163211.png
+2025-05-05 16:32:11,881 - INFO - Creating new post...
+2025-05-05 16:32:11,931 - INFO - Waiting for form to load...
+2025-05-05 16:32:11,950 - INFO - Filling post details...
+2025-05-05 16:32:12,174 - INFO - Screenshot saved: screenshots/before_submission_20250505_163212.png
+2025-05-05 16:32:13,490 - INFO - Screenshot saved: screenshots/post_created_20250505_163213.png
+2025-05-05 16:32:13,491 - INFO - Successfully created post: Blockchain: It's Not Just for Bitcoin Anymore (Seriously!)
+2025-05-05 16:32:13,491 - INFO - Analytics data saved for post: Blockchain: It's Not Just for Bitcoin Anymore (Seriously!)
+2025-05-05 16:32:13,676 - INFO - Blog post automation completed successfully

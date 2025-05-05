@@ -2,11 +2,10 @@ from playwright.sync_api import sync_playwright
 import time
 import os
 import random
-import pyautogui
+import logging
 from datetime import datetime
 import argparse
 import json
-import logging
 import google.generativeai as genai
 from dotenv import load_dotenv
 
@@ -24,15 +23,24 @@ logging.basicConfig(
 )
 
 def load_credentials():
-    """Load credentials from a config file"""
-    try:
-        with open("config.json", "r") as f:
-            config = json.load(f)
-            google_api_key = config.get("google_ai", {}).get("api_key") or os.getenv("GOOGLE_AI_API_KEY")
-            return config["email"], config["password"], google_api_key
-    except Exception as e:
-        logging.error(f"Error loading credentials: {e}")
-        return None, None, None
+    """Load credentials from environment variables or config file"""
+    # First try environment variables (preferred for CI/CD)
+    email = os.getenv("BLOG_EMAIL")
+    password = os.getenv("BLOG_PASSWORD")
+    google_api_key = os.getenv("GOOGLE_AI_API_KEY")
+    
+    # Fall back to config file if environment variables not set
+    if not (email and password):
+        try:
+            with open("config.json", "r") as f:
+                config = json.load(f)
+                email = email or config.get("email")
+                password = password or config.get("password")
+                google_api_key = google_api_key or config.get("google_ai", {}).get("api_key")
+        except Exception as e:
+            logging.error(f"Error loading credentials: {e}")
+    
+    return email, password, google_api_key
 
 def load_content_templates():
     """Load blog post templates from a file"""
@@ -78,7 +86,7 @@ def generate_ai_content(api_key, template=None):
     try:
         genai.configure(api_key=api_key)
         
-        # Use gemini-1.5-flash model instead of gemini-pro
+        # Use gemini-1.5-flash model
         model = genai.GenerativeModel('gemini-1.5-flash')
         logging.info("Using model: gemini-1.5-flash")
         
@@ -180,12 +188,12 @@ def create_screenshots_dir():
     return screenshots_dir
 
 def take_screenshot(page, name):
-    """Take a screenshot using Playwright instead of pyautogui"""
+    """Take a screenshot using Playwright"""
     screenshots_dir = create_screenshots_dir()
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"{screenshots_dir}/{name}_{timestamp}.png"
     
-    # Use Playwright's screenshot method instead of pyautogui
+    # Use Playwright's screenshot method
     page.screenshot(path=filename)
     logging.info(f"Screenshot saved: {filename}")
     return filename
@@ -219,7 +227,7 @@ def automate_blog_post(headless=False):
     email, password, google_api_key = load_credentials()
     
     if not email or not password:
-        logging.error("Credentials not found. Please set up config.json")
+        logging.error("Credentials not found. Please set up environment variables or config.json")
         return False
     
     post_content = generate_post_content(google_api_key)
@@ -353,6 +361,10 @@ def save_post_analytics(post_title):
         logging.error(f"Error saving analytics data: {e}")
 
 if __name__ == "__main__":
+    # Create necessary directories
+    if not os.path.exists("logs"):
+        os.makedirs("logs")
+        
     parser = argparse.ArgumentParser(description="Automate blog post creation")
     parser.add_argument("--headless", action="store_true", help="Run in headless mode")
     args = parser.parse_args()
